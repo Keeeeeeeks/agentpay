@@ -1,0 +1,45 @@
+{
+  "name": "@agentpay/service",
+  "version": "0.1.0",
+  "description": "AgentPay - Cloud wallet service for AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.700.0",
+    "@getpara/server-sdk": "^2.0.0",
+    "@getpara/viem-v2-integration": "^2.0.0",
+    "@hono/node-server": "^1.13.7",
+    "@hono/zod-validator": "^0.4.2",
+    "@privy-io/node": "^0.8.0",
+    "@simplewebauthn/server": "^11.0.0",
+    "@solana/web3.js": "^1.98.0",
+    "@stellar/stellar-sdk": "^12.0.0",
+    "drizzle-orm": "^0.38.3",
+    "hono": "^4.6.14",
+    "jose": "^6.0.0",
+    "nanoid": "^5.0.9",
+    "postgres": "^3.4.5",
+    "viem": "^2.21.54",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@simplewebauthn/types": "^11.0.0",
+    "@types/node": "^22.10.5",
+    "drizzle-kit": "^0.30.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

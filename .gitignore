@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.npm-cache/
+coverage/
+*.tsbuildinfo
+package-lock.json
+tmp/
+*.png
