@@ -102,6 +102,18 @@ export function createTransactionRoutes(ctx: AppContext) {
       txHash = signResult.hash;
     }
 
+    const valueUsd = Number(body.value) || 0;
+
+    if (ctx.spendingTracker) {
+      await ctx.spendingTracker.recordSpend({
+        agentId: agentToken.sub,
+        chainId: body.chainId,
+        amountUsd: valueUsd,
+        isMemecoin: false,
+        isBridge: false,
+      });
+    }
+
     const auditId = await writeAuditLog({
       agentId: agentToken.sub,
       tokenJti: agentToken.jti,

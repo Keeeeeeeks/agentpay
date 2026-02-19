@@ -11,7 +11,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "tsx src/db/migrate.ts"
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.700.0",

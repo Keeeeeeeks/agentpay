@@ -6,8 +6,10 @@ import { serve } from "@hono/node-server";
 import { JWTService, LocalJWTSigner, InMemoryTokenRevocationStore } from "./auth/jwt.js";
 import { requireAgentAuth, requirePasskeyAuth } from "./auth/middleware.js";
 import { PolicyEngine } from "./policy/engine.js";
-import type { SpendingTracker, PriceOracle, AssetClassifier } from "./policy/engine.js";
+import type { PriceOracle } from "./policy/engine.js";
 import { LocalProvider } from "./providers/local.js";
+import { DbSpendingTracker } from "./spending/tracker.js";
+import { DbAssetClassifier } from "./spending/classifier.js";
 import { ParaProvider } from "./providers/para.js";
 import type { SigningProvider, ProviderConfig } from "./providers/interface.js";
 import { ChainRegistry } from "./chains/registry.js";
@@ -30,21 +32,8 @@ function env(key: string, fallback?: string): string {
   return process.env[key] ?? fallback ?? "";
 }
 
-const stubSpendingTracker: SpendingTracker = {
-  getDailySpendUsd: async () => 0,
-  getWeeklySpendUsd: async () => 0,
-  getHourlyTransactionCount: async () => 0,
-  getDailyTransactionCount: async () => 0,
-  getMemecoinDailySpendUsd: async () => 0,
-};
-
 const stubPriceOracle: PriceOracle = {
   convertToUsd: async (value: string) => Number(value) || 0,
-};
-
-const stubAssetClassifier: AssetClassifier = {
-  isBridgeContract: async () => false,
-  isMemecoin: async () => false,
 };
 
 async function createSigningProvider(): Promise<SigningProvider> {
@@ -126,11 +115,14 @@ async function main() {
   const signingProvider = await createSigningProvider();
   const chainRegistry = new ChainRegistry(buildChainRegistryConfig());
 
+  const spendingTracker = new DbSpendingTracker(db);
+  const assetClassifier = new DbAssetClassifier(db);
+
   const policyEngine = new PolicyEngine(
-    stubSpendingTracker,
+    spendingTracker,
     stubPriceOracle,
     revocationStore,
-    stubAssetClassifier,
+    assetClassifier,
   );
 
   const appCtx: AppContext = {
@@ -138,6 +130,7 @@ async function main() {
     policyEngine,
     signingProvider,
     chainRegistry,
+    spendingTracker,
   };
 
   const app = new Hono();

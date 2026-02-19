@@ -11,17 +11,17 @@ Human (CLI)                          Agent (SDK/HTTP)
     |                                     |
     | session token                       | JWT (scoped, 24h)
     v                                     v
-+-----------------------------------------------------+
-|                  AgentPay Service                     |
-|                                                       |
++--------------------------------------------------------+
+|                  AgentPay Service                      |
+|                                                        |
 |  Auth --> Policy Engine --> Signing Provider --> Chain |
-|                                                       |
-|  11-check policy pipeline:                           |
-|   token valid -> chain allowed -> blocklist ->       |
-|   contract mode -> function selector -> bridge ->    |
-|   memecoin -> value limit -> daily cap ->            |
-|   rate limit -> approval threshold                   |
-+-----------------------------------------------------+
+|                                                        |
+|  11-check policy pipeline:                             |
+|   token valid -> chain allowed -> blocklist ->         |
+|   contract mode -> function selector -> bridge ->      |
+|   memecoin -> value limit -> daily cap ->              |
+|   rate limit -> approval threshold                     |
++--------------------------------------------------------+
          |              |              |
     +----+         +----+         +----+
     v              v              v

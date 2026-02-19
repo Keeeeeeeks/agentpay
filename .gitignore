@@ -11,3 +11,4 @@ coverage/
 package-lock.json
 tmp/
 *.png
+*.md
