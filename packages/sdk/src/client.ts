@@ -9,6 +9,7 @@ import {
   chainBalanceSchema,
   policyInfoSchema,
   policyRemainingSchema,
+  refreshTokenResponseSchema,
   signTransactionRequestSchema,
   signTransactionResponseSchema,
   transactionStatusSchema,
@@ -48,13 +49,16 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 export class AgentPayClient {
   private readonly baseUrl: string;
-  private readonly token: string;
+  private accessToken: string;
+  private refreshToken?: string;
   private readonly timeout: number;
+  private refreshInFlight?: Promise<void>;
 
   constructor(config: AgentPayConfig) {
     const parsedConfig = agentPayConfigSchema.parse(config);
     this.baseUrl = this.normalizeBaseUrl(parsedConfig.baseUrl);
-    this.token = parsedConfig.token;
+    this.accessToken = parsedConfig.token;
+    this.refreshToken = parsedConfig.refreshToken;
     this.timeout = parsedConfig.timeout ?? DEFAULT_TIMEOUT_MS;
   }
 
@@ -157,7 +161,7 @@ export class AgentPayClient {
       const response = await fetch(url, {
         method: options.method,
         headers: {
-          Authorization: `Bearer ${this.token}`,
+          Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -167,6 +171,11 @@ export class AgentPayClient {
       const rawBody = await this.parseResponseBody(response);
 
       if (!response.ok) {
+        if (response.status === 401 && this.refreshToken) {
+          await this.refreshAccessToken();
+          return this.requestWithoutAutoRefresh(options);
+        }
+
         throw new AgentPayError(
           this.extractErrorMessage(rawBody) || `Request failed with status ${response.status}`,
           response.status,
@@ -175,6 +184,124 @@ export class AgentPayClient {
       }
 
       return options.schema.parse(rawBody);
+    } catch (error) {
+      if (error instanceof AgentPayError) {
+        throw error;
+      }
+
+      if (error instanceof z.ZodError) {
+        throw new AgentPayError("Response validation failed", 500, error.flatten());
+      }
+
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new AgentPayError(`Request timed out after ${this.timeout}ms`, 408);
+      }
+
+      if (error instanceof Error) {
+        throw new AgentPayError(error.message, 500);
+      }
+
+      throw new AgentPayError("Unknown request error", 500, error);
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
+  }
+
+  private async requestWithoutAutoRefresh<T>(options: RequestOptions<T>): Promise<T> {
+    const url = this.buildUrl(options.path, options.query);
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(url, {
+        method: options.method,
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: controller.signal,
+      });
+
+      const rawBody = await this.parseResponseBody(response);
+      if (!response.ok) {
+        throw new AgentPayError(
+          this.extractErrorMessage(rawBody) || `Request failed with status ${response.status}`,
+          response.status,
+          rawBody,
+        );
+      }
+
+      return options.schema.parse(rawBody);
+    } catch (error) {
+      if (error instanceof AgentPayError) {
+        throw error;
+      }
+
+      if (error instanceof z.ZodError) {
+        throw new AgentPayError("Response validation failed", 500, error.flatten());
+      }
+
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new AgentPayError(`Request timed out after ${this.timeout}ms`, 408);
+      }
+
+      if (error instanceof Error) {
+        throw new AgentPayError(error.message, 500);
+      }
+
+      throw new AgentPayError("Unknown request error", 500, error);
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
+  }
+
+  private async refreshAccessToken(): Promise<void> {
+    if (!this.refreshToken) {
+      throw new AgentPayError("No refresh token configured", 401);
+    }
+
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.performTokenRefresh().finally(() => {
+        this.refreshInFlight = undefined;
+      });
+    }
+
+    await this.refreshInFlight;
+  }
+
+  private async performTokenRefresh(): Promise<void> {
+    const refreshToken = this.refreshToken;
+    if (!refreshToken) {
+      throw new AgentPayError("No refresh token configured", 401);
+    }
+
+    const url = this.buildUrl("/api/tokens/refresh");
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken }),
+        signal: controller.signal,
+      });
+
+      const rawBody = await this.parseResponseBody(response);
+      if (!response.ok) {
+        throw new AgentPayError(
+          this.extractErrorMessage(rawBody) || `Request failed with status ${response.status}`,
+          response.status,
+          rawBody,
+        );
+      }
+
+      const refreshed = refreshTokenResponseSchema.parse(rawBody);
+      this.accessToken = refreshed.accessToken;
+      this.refreshToken = refreshed.refreshToken;
     } catch (error) {
       if (error instanceof AgentPayError) {
         throw error;

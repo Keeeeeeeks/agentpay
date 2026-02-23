@@ -50,9 +50,9 @@ export function createTokenRoutes(ctx: AppContext) {
       expiresInSeconds: body.expiresInSeconds,
     };
 
-    const token = await ctx.jwtService.issueToken(request);
+    const tokenPair = await ctx.jwtService.issueTokenPair(request);
 
-    const result = await ctx.jwtService.validateToken(token);
+    const result = await ctx.jwtService.validateToken(tokenPair.accessToken);
     if (!result.valid || !result.payload) {
       return c.json({ error: "Failed to validate issued token" }, 500);
     }
@@ -72,7 +72,8 @@ export function createTokenRoutes(ctx: AppContext) {
     });
 
     return c.json({
-      token,
+      token: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
       jti: result.payload.jti,
       expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
       chains,

@@ -9,3 +9,4 @@ export { createApprovalRoutes } from "./approvals.js";
 export { createAuditRoutes } from "./audit.js";
 export { createAgentSelfRoutes } from "./agent-self.js";
 export { createOpenRoutes } from "./open.js";
+export { createRefreshRoutes } from "./refresh.js";

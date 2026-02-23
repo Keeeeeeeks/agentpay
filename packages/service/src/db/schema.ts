@@ -82,6 +82,28 @@ export const agentTokens = pgTable(
   ],
 );
 
+export const refreshTokens = pgTable(
+  "refresh_tokens",
+  {
+    id: varchar("id", { length: 26 }).primaryKey().$defaultFn(() => nanoid()),
+    agentId: varchar("agent_id", { length: 26 })
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    tokenHash: varchar("token_hash", { length: 128 }).notNull(),
+    accessJti: varchar("access_jti", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    familyId: varchar("family_id", { length: 26 }).notNull(),
+  },
+  (table: any) => [
+    uniqueIndex("refresh_tokens_token_hash_uq").on(table.tokenHash),
+    index("refresh_tokens_agent_id_idx").on(table.agentId),
+    index("refresh_tokens_family_id_idx").on(table.familyId),
+  ],
+);
+
 export const agentPolicies = pgTable(
   "agent_policies",
   {

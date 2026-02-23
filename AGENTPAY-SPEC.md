@@ -26,22 +26,22 @@ AgentPay is a cloud-based wallet service that lets AI agents transact on-chain w
 │  • Set/modify policies (dashboard)   • Check balances                    │
 │  • Approve high-value tx             • Query policy limits               │
 │  • View audit logs                   • Request allowlist additions       │
-│  • Fund wallets                      • Connect to dApps (WC, post-MVP)  │
+│  • Fund wallets                      • Connect to dApps (WC, post-MVP)   │
 │                                                                          │
 │           │                                    │                         │
-│           │ Passkey (WebAuthn)                  │ JWT (scoped, 24h exp)   │
+│           │ Passkey (WebAuthn)                  │ JWT (scoped, 24h exp)  │
 │           ▼                                    ▼                         │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
 │  │                      AGENTPAY SERVICE                              │  │
 │  │                                                                    │  │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │  │
-│  │  │                    AUTH LAYER                                │   │  │
+│  │  │                    AUTH LAYER                               │   │  │
 │  │  │                                                             │   │  │
-│  │  │  Passkey Verifier ◀── human requests (policy changes,      │   │  │
+│  │  │  Passkey Verifier ◀── human requests (policy changes,       │   │  │
 │  │  │                       agent CRUD, approvals)                │   │  │
-│  │  │  JWT Validator    ◀── agent requests (sign, balance, etc)  │   │  │
-│  │  │  Token Issuer     ──▶ KMS-signed JWTs (key never in mem)   │   │  │
-│  │  │  Token Revoker    ──▶ instant revocation via DB blocklist  │   │  │
+│  │  │  JWT Validator    ◀── agent requests (sign, balance, etc)   │   │  │
+│  │  │  Token Issuer     ──▶ KMS-signed JWTs (key never in mem)    │   │  │
+│  │  │  Token Revoker    ──▶ instant revocation via DB blocklist   │   │  │
 │  │  └─────────────────────────────────────────────────────────────┘   │  │
 │  │                                                                    │  │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │  │
@@ -51,7 +51,7 @@ AgentPay is a cloud-based wallet service that lets AI agents transact on-chain w
 │  │  │                                                             │   │  │
 │  │  │  Evaluation chain (in order):                               │   │  │
 │  │  │   1. Token valid + not revoked                              │   │  │
-│  │  │   2. Token scope covers requested chain                    │   │  │
+│  │  │   2. Token scope covers requested chain                     │   │  │
 │  │  │   3. Target address not in blocklist                        │   │  │
 │  │  │   4. Contract in allowlist (if mode=allowlist)              │   │  │
 │  │  │   5. Function selector allowed                              │   │  │
@@ -66,7 +66,7 @@ AgentPay is a cloud-based wallet service that lets AI agents transact on-chain w
 │  │  ┌─────────────────────────────────────────────────────────────┐   │  │
 │  │  │           SIGNING PROVIDER (Adapter Interface)              │   │  │
 │  │  │                                                             │   │  │
-│  │  │  interface SigningProvider {                                 │   │  │
+│  │  │  interface SigningProvider {                                │   │  │
 │  │  │    name: string                                             │   │  │
 │  │  │    createWallet(type, id): WalletInfo                       │   │  │
 │  │  │    getAddress(chainId): string                              │   │  │
@@ -75,19 +75,19 @@ AgentPay is a cloud-based wallet service that lets AI agents transact on-chain w
 │  │  │    healthCheck(): boolean                                   │   │  │
 │  │  │  }                                                          │   │  │
 │  │  │                                                             │   │  │
-│  │  │  MVP:  ParaProvider  (pregen wallets, MPC, EVM+Solana)     │   │  │
-│  │  │  v2:   TurnkeyProvider (enclave, native policy)            │   │  │
-│  │  │  v2:   PrivyProvider (Stellar support)                     │   │  │
-│  │  │  v3:   HSMProvider (hardware, Apple Pay model)             │   │  │
-│  │  │  dev:  LocalProvider (in-memory, testing only)             │   │  │
+│  │  │  MVP:  ParaProvider  (pregen wallets, MPC, EVM+Solana)      │   │  │
+│  │  │  v2:   TurnkeyProvider (enclave, native policy)             │   │  │
+│  │  │  v2:   PrivyProvider (Stellar support)                      │   │  │
+│  │  │  v3:   HSMProvider (hardware, Apple Pay model)              │   │  │
+│  │  │  dev:  LocalProvider (in-memory, testing only)              │   │  │
 │  │  └─────────────────────────────────────────────────────────────┘   │  │
 │  │                                                                    │  │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │  │
 │  │  │             CHAIN ABSTRACTION LAYER                         │   │  │
 │  │  │                                                             │   │  │
-│  │  │  EvmChain  (viem)   → Eth, Base, Arb, OP, Polygon, etc    │   │  │
-│  │  │  SolanaChain (web3) → Mainnet, Devnet                      │   │  │
-│  │  │  StellarChain (Privy + Stellar SDK) → Mainnet, Testnet    │   │  │
+│  │  │  EvmChain  (viem)   → Eth, Base, Arb, OP, Polygon, etc      │   │  │
+│  │  │  SolanaChain (web3) → Mainnet, Devnet                       │   │  │
+│  │  │  StellarChain (Privy + Stellar SDK) → Mainnet, Testnet      │   │  │
 │  │  │                                                             │   │  │
 │  │  │  Common interface:                                          │   │  │
 │  │  │    getBalance(address): NativeBalance                       │   │  │
@@ -115,7 +115,7 @@ AgentPay is a cloud-based wallet service that lets AI agents transact on-chain w
 │  CLI          → npx agentpay <command> (humans)                          │
 │  Dashboard    → Web UI for policy management (humans)                    │
 │  MCP Server   → Tool calls for AI agents                                 │
-│  WC Relay     → WalletConnect v2 (post-MVP, P0.5)                       │
+│  WC Relay     → WalletConnect v2 (post-MVP, P0.5)                        │
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -819,21 +819,21 @@ ai-wallet/
 
 ### MVP
 - [x] Spec finalized
-- [ ] Core service (auth, policy, providers, chains, API)
-- [ ] Para provider (pregen wallets, EVM + Solana signing)
-- [ ] JWT auth with KMS signing
-- [ ] Policy engine with presets (safe/normal/degen) + bridging + memecoins
-- [ ] REST API (human + agent endpoints)
-- [ ] Balance query endpoints
-- [ ] Agent SDK
-- [ ] CLI (npx agentpay)
-- [ ] Policy dashboard (web UI)
-- [ ] Audit logging
+- [x] Core service (auth, policy, providers, chains, API)
+- [x] Para provider (pregen wallets, EVM + Solana signing)
+- [x] JWT auth with KMS signing
+- [x] Policy engine with presets (safe/normal/degen) + bridging + memecoins
+- [x] REST API (human + agent endpoints)
+- [x] Balance query endpoints
+- [x] Agent SDK
+- [x] CLI (npx agentpay)
+- [x] Policy dashboard (web UI)
+- [x] Audit logging
 
 ### Post-MVP (P0.5)
-- [ ] WalletConnect v2 relay (server-side WC wallet)
-- [ ] Auto-refresh JWT tokens
-- [ ] MCP server for agent-native tool calls
+- [x] WalletConnect v2 relay (server-side WC wallet)
+- [x] Auto-refresh JWT tokens
+- [x] MCP server for agent-native tool calls
 
 ### v2
 - [ ] Turnkey provider
@@ -843,7 +843,7 @@ ai-wallet/
 - [ ] Webhook notifications
 - [ ] Analytics dashboard
 
-### v3
+### v3 (future)
 - [ ] HSM provider (Apple Pay model)
 - [ ] On-chain policy enforcement (Safe modules / ERC-4337)
 - [ ] Cosmos chain support

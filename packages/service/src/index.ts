@@ -26,6 +26,7 @@ import { createApprovalRoutes } from "./api/approvals.js";
 import { createAuditRoutes } from "./api/audit.js";
 import { createAgentSelfRoutes } from "./api/agent-self.js";
 import { createOpenRoutes } from "./api/open.js";
+import { createRefreshRoutes } from "./api/refresh.js";
 import type { AppContext } from "./api/context.js";
 
 function env(key: string, fallback?: string): string {
@@ -157,6 +158,7 @@ async function main() {
   const agentAuth = requireAgentAuth(jwtService);
 
   app.route("/api", createOpenRoutes(appCtx));
+  app.route("/api/tokens", createRefreshRoutes(appCtx));
 
   app.route("/api/agents", (() => {
     const r = new Hono();

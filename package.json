@@ -13,5 +13,12 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "@walletconnect/core": "2.17.1",
+      "@walletconnect/types": "2.17.1",
+      "@walletconnect/utils": "2.17.1"
+    }
   }
 }

@@ -24,6 +24,23 @@ export interface TokenIssueRequest {
   expiresInSeconds?: number;
 }
 
+export interface RefreshTokenResult {
+  refreshToken: string;
+  expiresAt: Date;
+  familyId: string;
+}
+
+export interface TokenPairResult {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresAt: number;
+  refreshExpiresAt: Date;
+}
+
+export interface RefreshRequest {
+  refreshToken: string;
+}
+
 export interface TokenValidationResult {
   valid: boolean;
   payload?: AgentTokenPayload;

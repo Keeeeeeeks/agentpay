@@ -1,0 +1,27 @@
+{
+  "name": "@agentpay/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AgentPay — AI agent tool calls",
+  "type": "module",
+  "bin": {
+    "agentpay-mcp": "./dist/bin/agentpay-mcp.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,11 +1,99 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { createHash } from "node:crypto";
 
 import {
   JWTService,
   LocalJWTSigner,
   InMemoryTokenRevocationStore,
+  type RefreshTokenStore,
 } from "../auth/jwt.js";
 import type { TokenIssueRequest } from "../auth/types.js";
+
+type StoredRefreshToken = {
+  id: string;
+  agentId: string;
+  accessJti: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  revokedAt: Date | null;
+  familyId: string;
+};
+
+class TestRefreshTokenStore implements RefreshTokenStore {
+  private readonly tokensByHash = new Map<string, StoredRefreshToken>();
+  private idCounter = 0;
+
+  async store(params: {
+    agentId: string;
+    tokenHash: string;
+    accessJti: string;
+    expiresAt: Date;
+    familyId: string;
+  }): Promise<void> {
+    this.idCounter += 1;
+    this.tokensByHash.set(params.tokenHash, {
+      id: `refresh-${this.idCounter}`,
+      agentId: params.agentId,
+      accessJti: params.accessJti,
+      expiresAt: new Date(params.expiresAt),
+      usedAt: null,
+      revokedAt: null,
+      familyId: params.familyId,
+    });
+  }
+
+  async findByHash(tokenHash: string): Promise<StoredRefreshToken | null> {
+    const token = this.tokensByHash.get(tokenHash);
+    if (!token) {
+      return null;
+    }
+
+    return {
+      id: token.id,
+      agentId: token.agentId,
+      accessJti: token.accessJti,
+      expiresAt: new Date(token.expiresAt),
+      usedAt: token.usedAt ? new Date(token.usedAt) : null,
+      revokedAt: token.revokedAt ? new Date(token.revokedAt) : null,
+      familyId: token.familyId,
+    };
+  }
+
+  async markUsed(id: string): Promise<void> {
+    for (const token of this.tokensByHash.values()) {
+      if (token.id === id) {
+        token.usedAt = new Date();
+        return;
+      }
+    }
+  }
+
+  async revokeFamily(familyId: string): Promise<void> {
+    for (const token of this.tokensByHash.values()) {
+      if (token.familyId === familyId) {
+        token.revokedAt = new Date();
+      }
+    }
+  }
+
+  async setExpiresAt(refreshToken: string, expiresAt: Date): Promise<void> {
+    const token = this.tokensByHash.get(hashRefreshToken(refreshToken));
+    if (token) {
+      token.expiresAt = expiresAt;
+    }
+  }
+
+  async revokeByToken(refreshToken: string): Promise<void> {
+    const token = this.tokensByHash.get(hashRefreshToken(refreshToken));
+    if (token) {
+      token.revokedAt = new Date();
+    }
+  }
+}
+
+function hashRefreshToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 function makeIssueRequest(overrides?: Partial<TokenIssueRequest>): TokenIssueRequest {
   return {
@@ -21,12 +109,14 @@ function makeIssueRequest(overrides?: Partial<TokenIssueRequest>): TokenIssueReq
 describe("JWTService", () => {
   let signer: LocalJWTSigner;
   let revocationStore: InMemoryTokenRevocationStore;
+  let refreshTokenStore: TestRefreshTokenStore;
   let service: JWTService;
 
   beforeEach(() => {
     signer = new LocalJWTSigner();
     revocationStore = new InMemoryTokenRevocationStore();
-    service = new JWTService(signer, revocationStore);
+    refreshTokenStore = new TestRefreshTokenStore();
+    service = new JWTService(signer, revocationStore, refreshTokenStore);
   });
 
   describe("issueToken", () => {
@@ -155,6 +245,70 @@ describe("JWTService", () => {
       await store.revoke("jti-1");
       expect(await store.isRevoked("jti-1")).toBe(true);
       expect(await store.isRevoked("jti-2")).toBe(false);
+    });
+  });
+
+  describe("refresh tokens", () => {
+    it("issueTokenPair returns access and refresh tokens", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+
+      expect(typeof pair.accessToken).toBe("string");
+      expect(pair.accessToken.split(".")).toHaveLength(3);
+      expect(typeof pair.refreshToken).toBe("string");
+      expect(pair.refreshToken.length).toBeGreaterThan(20);
+      expect(pair.accessExpiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
+      expect(pair.refreshExpiresAt).toBeInstanceOf(Date);
+    });
+
+    it("refreshAccessToken returns a new valid token pair", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+      const refreshed = await service.refreshAccessToken(pair.refreshToken);
+
+      expect(refreshed.accessToken).not.toBe(pair.accessToken);
+      expect(refreshed.refreshToken).not.toBe(pair.refreshToken);
+
+      const validated = await service.validateToken(refreshed.accessToken);
+      expect(validated.valid).toBe(true);
+      expect(validated.payload?.sub).toBe("agent-test-1");
+    });
+
+    it("refreshAccessToken marks old refresh token as used", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+      await service.refreshAccessToken(pair.refreshToken);
+
+      const stored = await refreshTokenStore.findByHash(hashRefreshToken(pair.refreshToken));
+      expect(stored?.usedAt).not.toBeNull();
+    });
+
+    it("refreshAccessToken rejects expired refresh tokens", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+      await refreshTokenStore.setExpiresAt(pair.refreshToken, new Date(Date.now() - 1000));
+
+      await expect(service.refreshAccessToken(pair.refreshToken)).rejects.toThrow(
+        "Refresh token expired",
+      );
+    });
+
+    it("refreshAccessToken detects replay and revokes family", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+      const refreshed = await service.refreshAccessToken(pair.refreshToken);
+
+      await expect(service.refreshAccessToken(pair.refreshToken)).rejects.toThrow(
+        "Refresh token reuse detected — all tokens in family revoked",
+      );
+
+      await expect(service.refreshAccessToken(refreshed.refreshToken)).rejects.toThrow(
+        "Refresh token revoked",
+      );
+    });
+
+    it("refreshAccessToken rejects revoked refresh tokens", async () => {
+      const pair = await service.issueTokenPair(makeIssueRequest());
+      await refreshTokenStore.revokeByToken(pair.refreshToken);
+
+      await expect(service.refreshAccessToken(pair.refreshToken)).rejects.toThrow(
+        "Refresh token revoked",
+      );
     });
   });
 });

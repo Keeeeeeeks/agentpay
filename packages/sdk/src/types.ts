@@ -3,7 +3,15 @@ import { z } from "zod";
 export interface AgentPayConfig {
   baseUrl: string;
   token: string;
+  refreshToken?: string;
   timeout?: number;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresAt: number;
+  refreshExpiresAt: string;
 }
 
 export interface SignTransactionRequest {
@@ -114,7 +122,15 @@ export interface TransactionStatus {
 export const agentPayConfigSchema = z.object({
   baseUrl: z.string().min(1),
   token: z.string().min(1),
+  refreshToken: z.string().min(1).optional(),
   timeout: z.number().int().positive().optional(),
+});
+
+export const refreshTokenResponseSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  accessExpiresAt: z.number().int(),
+  refreshExpiresAt: z.string().min(1),
 });
 
 export const signTransactionRequestSchema = z.object({
