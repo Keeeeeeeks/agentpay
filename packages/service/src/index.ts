@@ -11,6 +11,7 @@ import { LocalProvider } from "./providers/local.js";
 import { DbSpendingTracker } from "./spending/tracker.js";
 import { DbAssetClassifier } from "./spending/classifier.js";
 import { ParaProvider } from "./providers/para.js";
+import { PrivateKeyProvider } from "./providers/privatekey.js";
 import type { SigningProvider, ProviderConfig } from "./providers/interface.js";
 import { ChainRegistry } from "./chains/registry.js";
 import type { ChainRegistryConfig } from "./chains/registry.js";
@@ -24,10 +25,13 @@ import { createBalanceRoutes } from "./api/balances.js";
 import { createPolicyRoutes } from "./api/policies.js";
 import { createApprovalRoutes } from "./api/approvals.js";
 import { createAuditRoutes } from "./api/audit.js";
+import { createWebhookRoutes } from "./api/webhooks.js";
+import { createAllowlistRoutes } from "./api/allowlists.js";
 import { createAgentSelfRoutes } from "./api/agent-self.js";
 import { createOpenRoutes } from "./api/open.js";
 import { createRefreshRoutes } from "./api/refresh.js";
 import type { AppContext } from "./api/context.js";
+import { startWebhookDispatcher } from "./webhooks/dispatcher.js";
 
 function env(key: string, fallback?: string): string {
   return process.env[key] ?? fallback ?? "";
@@ -74,6 +78,37 @@ async function createSigningProvider(): Promise<SigningProvider> {
 
     await provider.initialize(config);
     console.log(`Signing provider: Para (${config.environment})`);
+    return provider;
+  }
+
+  if (providerName === "privatekey") {
+    const privateKey = env("PRIVATE_KEY");
+    if (!privateKey) {
+      throw new Error("PRIVATE_KEY is required when SIGNING_PROVIDER=privatekey");
+    }
+
+    const provider = new PrivateKeyProvider();
+    const rpcUrls: Record<string, string> = {};
+
+    // Collect any custom RPC URLs from env
+    const rpcMappings: Record<string, string> = {
+      RPC_EIP155_84532: "eip155:84532",
+      RPC_EIP155_11155111: "eip155:11155111",
+      RPC_EIP155_1: "eip155:1",
+      RPC_EIP155_8453: "eip155:8453",
+    };
+    for (const [envKey, chainId] of Object.entries(rpcMappings)) {
+      const url = env(envKey);
+      if (url) rpcUrls[chainId] = url;
+    }
+
+    await provider.initialize({
+      apiPrivateKey: privateKey,
+      environment: "sandbox",
+      rpcUrls,
+    });
+
+    console.log(`Signing provider: PrivateKey (address: ${await provider.getAddress("eip155:1")})`);
     return provider;
   }
 
@@ -134,6 +169,8 @@ async function main() {
     spendingTracker,
   };
 
+  startWebhookDispatcher();
+
   const app = new Hono();
 
   app.use("*", cors());
@@ -181,12 +218,6 @@ async function main() {
     return r;
   })());
 
-  app.route("/api", (() => {
-    const r = new Hono();
-    r.use("*", agentAuth);
-    r.route("/", createAgentSelfRoutes(appCtx));
-    return r;
-  })());
 
   app.route("/api/transactions", (() => {
     const r = new Hono();
@@ -213,6 +244,27 @@ async function main() {
     const r = new Hono();
     r.use("*", adminAuth);
     r.route("/", createAuditRoutes(appCtx));
+    return r;
+  })());
+
+  app.route("/api/agents", (() => {
+    const r = new Hono();
+    r.use("*", adminAuth);
+    r.route("/", createAllowlistRoutes(appCtx));
+    return r;
+  })());
+
+  app.route("/api/webhooks", (() => {
+    const r = new Hono();
+    r.use("*", adminAuth);
+    r.route("/", createWebhookRoutes(appCtx));
+    return r;
+  })());
+
+  app.route("/api", (() => {
+    const r = new Hono();
+    r.use("*", agentAuth);
+    r.route("/", createAgentSelfRoutes(appCtx));
     return r;
   })());
 
