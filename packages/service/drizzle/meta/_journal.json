@@ -15,6 +15,13 @@
       "when": 1771478000911,
       "tag": "0001_wonderful_gravity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773117860079,
+      "tag": "0002_bitter_living_mummy",
+      "breakpoints": true
     }
   ]
 }

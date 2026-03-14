@@ -318,3 +318,48 @@ export const knownBridges = pgTable(
     index("known_bridges_canonical_idx").on(table.canonical),
   ],
 );
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: varchar("id", { length: 26 }).primaryKey().$defaultFn(() => nanoid()),
+    agentId: varchar("agent_id", { length: 26 })
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    subscribedActions: jsonb("subscribed_actions").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table: any) => [
+    index("webhooks_agent_id_idx").on(table.agentId),
+    index("webhooks_enabled_idx").on(table.enabled),
+  ],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: varchar("id", { length: 26 }).primaryKey().$defaultFn(() => nanoid()),
+    webhookId: varchar("webhook_id", { length: 26 })
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    auditLogId: varchar("audit_log_id", { length: 26 })
+      .notNull()
+      .references(() => auditLogs.id, { onDelete: "cascade" }),
+    status: varchar("status", { length: 32 }).notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    responseCode: integer("response_code"),
+    error: text("error"),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table: any) => [
+    index("webhook_deliveries_webhook_id_idx").on(table.webhookId),
+    index("webhook_deliveries_audit_log_id_idx").on(table.auditLogId),
+    index("webhook_deliveries_status_idx").on(table.status),
+    index("webhook_deliveries_next_retry_at_idx").on(table.nextRetryAt),
+  ],
+);
