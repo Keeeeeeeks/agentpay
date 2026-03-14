@@ -280,7 +280,3 @@ STELLAR_SOROBAN_RPC_URL=        # Optional, uses public default
 ## Architecture
 
 See [AGENTPAY-SPEC.md](./AGENTPAY-SPEC.md) for the full specification.
-
-## License
-
-MIT
