@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import Spinner from "../components/Spinner";
 
@@ -80,9 +81,9 @@ export default function CreateAgentModal({ open, onClose, onCreated }: Props) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70" onClick={onClose}>
+      <div className="flex min-h-full items-center justify-center px-4 py-8" onClick={(e) => e.stopPropagation()}>
       <div className="relative w-full max-w-lg animate-fade-in rounded-2xl border border-border bg-surface-1 p-6">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-bold text-text-primary">Create Agent</h2>
@@ -169,6 +170,8 @@ export default function CreateAgentModal({ open, onClose, onCreated }: Props) {
           </div>
         </form>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -13,6 +13,7 @@ import {
   optimism,
   polygon,
   sepolia,
+  baseSepolia,
 } from "viem/chains";
 
 import type {
@@ -37,6 +38,8 @@ const CHAIN_MAP: Record<string, Chain> = {
   "137": polygon,
   "eip155:11155111": sepolia,
   "11155111": sepolia,
+  "eip155:84532": baseSepolia,
+  "84532": baseSepolia,
 };
 
 interface EvmChainConfig {

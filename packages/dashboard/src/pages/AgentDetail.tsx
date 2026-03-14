@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, type AgentDetail as AgentDetailType, type TokenInfo, type AuditLog } from "../api";
+import {
+  api,
+  connectAuditStream,
+  type AgentDetail as AgentDetailType,
+  type TokenInfo,
+  type AuditLog,
+} from "../api";
 import StatusBadge from "../components/StatusBadge";
-import PresetBadge from "../components/PresetBadge";
 import Spinner from "../components/Spinner";
 import ErrorMessage from "../components/ErrorMessage";
+import PolicyEditor from "./PolicyEditor";
 
 const CHAINS = [
   { id: "eip155:1", label: "Ethereum", short: "ETH" },
@@ -13,7 +19,6 @@ const CHAINS = [
   { id: "eip155:10", label: "Optimism", short: "OP" },
 ];
 
-const PRESET_OPTIONS = ["safe", "normal", "degen"];
 
 function SpendingBar({ label, spent, limit }: { label: string; spent: number; limit: number }) {
   const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
@@ -105,6 +110,7 @@ function TokenRow({ token, agentId, onRevoked }: { token: TokenInfo; agentId: st
       <td className="px-4 py-3 text-right">
         {status === "active" && (
           <button
+            type="button"
             onClick={handleRevoke}
             disabled={revoking}
             className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-danger hover:bg-danger-muted transition-all disabled:opacity-50"
@@ -151,6 +157,7 @@ function AuditRow({ log }: { log: AuditLog }) {
         </td>
         <td className="px-4 py-3 text-right">
           <svg
+            aria-hidden="true"
             className={`inline h-4 w-4 text-text-tertiary transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -188,6 +195,50 @@ function AuditRow({ log }: { log: AuditLog }) {
         </tr>
       )}
     </>
+  );
+}
+
+function FeedCard({ log }: { log: AuditLog }) {
+  const decoded = log.decoded;
+  const riskClass = decoded?.riskLevel === "critical"
+    ? "border-danger/30 bg-danger-muted"
+    : decoded?.riskLevel === "warning"
+      ? "border-warning/30 bg-warning-muted"
+      : "border-border bg-surface-2/40";
+
+  return (
+    <div className={`rounded-lg border p-4 ${riskClass}`}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="rounded-md bg-surface-2 px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+          {log.action}
+        </span>
+        <span className="font-mono text-[11px] text-text-tertiary">
+          {new Date(log.timestamp).toLocaleString()}
+        </span>
+      </div>
+
+      <p className="text-sm text-text-primary">
+        {decoded?.summary ?? "Agent activity recorded"}
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+        {decoded?.protocol && (
+          <span className="rounded-md border border-border px-2 py-1 font-mono text-text-secondary">
+            protocol: {decoded.protocol}
+          </span>
+        )}
+        {decoded?.amount && (
+          <span className="rounded-md border border-border px-2 py-1 font-mono text-text-secondary">
+            amount: {decoded.amount}
+          </span>
+        )}
+        {decoded?.reason && (
+          <span className="rounded-md border border-border px-2 py-1 font-mono text-text-secondary">
+            reason: {decoded.reason}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -237,7 +288,7 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
     return (
       <div className="rounded-xl border border-success/20 bg-success-muted p-4">
         <div className="mb-2 flex items-center gap-2">
-          <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg aria-hidden="true" className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span className="text-sm font-semibold text-success">Token Issued</span>
@@ -249,6 +300,7 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
           Expires: {new Date(result.expiresAt).toLocaleString()}
         </p>
         <button
+          type="button"
           onClick={() => setResult(null)}
           className="mt-3 text-xs font-medium text-success hover:text-green-300 transition-colors"
         >
@@ -261,10 +313,11 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-text-tertiary">Chains</label>
+        <p className="mb-2 block text-xs font-medium uppercase tracking-wider text-text-tertiary">Chains</p>
         <div className="flex flex-wrap gap-2">
           {CHAINS.map((chain) => (
             <button
+              type="button"
               key={chain.id}
               onClick={() => toggleChain(chain.id)}
               className={`rounded-lg border px-3 py-2 font-mono text-xs transition-all ${
@@ -280,8 +333,9 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
         </div>
       </div>
       <div>
-        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-text-tertiary">TTL (seconds)</label>
+        <label htmlFor="token-ttl" className="mb-2 block text-xs font-medium uppercase tracking-wider text-text-tertiary">TTL (seconds)</label>
         <input
+          id="token-ttl"
           type="number"
           value={ttl}
           onChange={(e) => setTtl(e.target.value)}
@@ -290,6 +344,7 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
       </div>
       {error && <p className="text-xs text-danger">{error}</p>}
       <button
+        type="button"
         onClick={handleIssue}
         disabled={loading}
         className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-surface-0 transition-all hover:bg-accent-dim disabled:opacity-50 active:scale-[0.98]"
@@ -301,171 +356,6 @@ function IssueTokenForm({ agentId, onIssued }: { agentId: string; onIssued: () =
   );
 }
 
-function PolicySection({
-  agent,
-  onUpdated,
-}: {
-  agent: AgentDetailType;
-  onUpdated: () => void;
-}) {
-  const [changingPreset, setChangingPreset] = useState(false);
-  const [newPreset, setNewPreset] = useState("");
-  const [confirmText, setConfirmText] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const policy = agent.currentPolicy;
-  if (!policy) {
-    return <p className="text-sm text-text-tertiary">No policy assigned</p>;
-  }
-
-  const data = policy.data as Record<string, unknown>;
-  const spending = data.spending as Record<string, unknown> | undefined;
-  const rateLimits = data.rateLimits as Record<string, unknown> | undefined;
-  const contractMode = (data.contractPolicy as Record<string, unknown>)?.mode as string | undefined;
-  const bridgeMode = (data.bridgePolicy as Record<string, unknown>)?.mode as string | undefined;
-  const memecoinMode = (data.memecoinPolicy as Record<string, unknown>)?.mode as string | undefined;
-
-  const handlePresetChange = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      await api.policies.update(agent.id, newPreset, confirmText || undefined);
-      setChangingPreset(false);
-      setNewPreset("");
-      setConfirmText("");
-      onUpdated();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update policy");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <PresetBadge preset={policy.preset} />
-          <span className="font-mono text-xs text-text-tertiary">v{policy.version}</span>
-        </div>
-        {!changingPreset && (
-          <button
-            onClick={() => setChangingPreset(true)}
-            className="text-xs font-medium text-text-secondary hover:text-accent transition-colors"
-          >
-            Change Preset
-          </button>
-        )}
-      </div>
-
-      {changingPreset && (
-        <div className="rounded-xl border border-warning/20 bg-warning-muted p-4 space-y-3">
-          <p className="text-xs font-semibold text-warning">Change Policy Preset</p>
-          <div className="flex gap-2">
-            {PRESET_OPTIONS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setNewPreset(p)}
-                className={`rounded-lg border px-3 py-2 font-mono text-xs font-semibold uppercase transition-all ${
-                  newPreset === p
-                    ? "border-accent/30 bg-accent-muted text-accent"
-                    : "border-border bg-surface-2 text-text-secondary hover:border-border-hover"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-          <input
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="Change summary (optional)"
-            className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-text-primary outline-none focus:border-accent/40 transition-all"
-          />
-          {error && <p className="text-xs text-danger">{error}</p>}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setChangingPreset(false); setNewPreset(""); setError(""); }}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handlePresetChange}
-              disabled={!newPreset || loading}
-              className="flex items-center gap-1.5 rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-surface-0 disabled:opacity-50 transition-all"
-            >
-              {loading && <Spinner size="sm" />}
-              Confirm Change
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {spending && (
-          <div className="rounded-lg border border-border bg-surface-2/50 p-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Spending Limits</p>
-            <div className="space-y-1">
-              <p className="font-mono text-xs text-text-secondary">
-                Daily: <span className="text-text-primary">${String(spending.dailyLimitUsd ?? "—")}</span>
-              </p>
-              <p className="font-mono text-xs text-text-secondary">
-                Weekly: <span className="text-text-primary">${String(spending.weeklyLimitUsd ?? "—")}</span>
-              </p>
-              <p className="font-mono text-xs text-text-secondary">
-                Per-tx: <span className="text-text-primary">${String(spending.perTransactionLimitUsd ?? "—")}</span>
-              </p>
-            </div>
-          </div>
-        )}
-        {rateLimits && (
-          <div className="rounded-lg border border-border bg-surface-2/50 p-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Rate Limits</p>
-            <div className="space-y-1">
-              <p className="font-mono text-xs text-text-secondary">
-                Per hour: <span className="text-text-primary">{String(rateLimits.maxTransactionsPerHour ?? "—")}</span>
-              </p>
-              <p className="font-mono text-xs text-text-secondary">
-                Per day: <span className="text-text-primary">{String(rateLimits.maxTransactionsPerDay ?? "—")}</span>
-              </p>
-            </div>
-          </div>
-        )}
-        <div className="rounded-lg border border-border bg-surface-2/50 p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Modes</p>
-          <div className="space-y-1.5">
-            <ModeIndicator label="Contracts" mode={contractMode} />
-            <ModeIndicator label="Bridges" mode={bridgeMode} />
-            <ModeIndicator label="Memecoins" mode={memecoinMode} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModeIndicator({ label, mode }: { label: string; mode?: string }) {
-  const modeColors: Record<string, string> = {
-    blocked: "text-danger",
-    whitelist: "text-info",
-    "whitelist-only": "text-info",
-    audited: "text-success",
-    allowed: "text-success",
-    any: "text-warning",
-  };
-
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-text-secondary">{label}</span>
-      <span className={`font-mono text-xs font-medium ${modeColors[mode ?? ""] ?? "text-text-tertiary"}`}>
-        {mode ?? "—"}
-      </span>
-    </div>
-  );
-}
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -481,7 +371,7 @@ export default function AgentDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [disabling, setDisabling] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tokens" | "audit">("tokens");
+  const [activeTab, setActiveTab] = useState<"activity" | "tokens" | "audit">("activity");
 
   const loadAgent = useCallback(async () => {
     if (!id) return;
@@ -526,6 +416,41 @@ export default function AgentDetail() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    let cancelled = false;
+    let disconnect: (() => void) | null = null;
+
+    const start = async () => {
+      try {
+        disconnect = await connectAuditStream(id, (event) => {
+          if (cancelled) {
+            return;
+          }
+
+          setLogs((prev) => {
+            if (prev.some((log) => log.id === event.log.id)) {
+              return prev;
+            }
+            return [event.log, ...prev];
+          });
+        });
+      } catch {
+        return;
+      }
+    };
+
+    void start();
+
+    return () => {
+      cancelled = true;
+      disconnect?.();
+    };
+  }, [id]);
+
   const handleDisable = async () => {
     if (!id || !agent) return;
     setDisabling(true);
@@ -556,10 +481,11 @@ export default function AgentDetail() {
       <div className="flex items-start justify-between">
         <div>
           <button
+            type="button"
             onClick={() => navigate("/agents")}
             className="mb-3 flex items-center gap-1 text-xs font-medium text-text-tertiary hover:text-text-secondary transition-colors"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg aria-hidden="true" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
             Back to Agents
@@ -572,6 +498,7 @@ export default function AgentDetail() {
         </div>
         {agent.status === "active" && (
           <button
+            type="button"
             onClick={handleDisable}
             disabled={disabling}
             className="flex items-center gap-1.5 rounded-lg border border-danger/20 bg-danger-muted px-3 py-2 text-xs font-medium text-danger hover:bg-danger/20 transition-all disabled:opacity-50"
@@ -601,7 +528,7 @@ export default function AgentDetail() {
       )}
 
       <Section title="Policy">
-        <PolicySection agent={agent} onUpdated={() => { loadAgent(); loadSpending(); }} />
+        <PolicyEditor agent={agent} onUpdated={() => { loadAgent(); loadSpending(); }} />
       </Section>
 
       {spending && (
@@ -617,6 +544,9 @@ export default function AgentDetail() {
 
       <div>
         <div className="mb-4 flex items-center gap-1 rounded-lg bg-surface-2 p-1">
+          <TabButton active={activeTab === "activity"} onClick={() => setActiveTab("activity")}>
+            Activity Feed
+          </TabButton>
           <TabButton active={activeTab === "tokens"} onClick={() => setActiveTab("tokens")}>
             Tokens
           </TabButton>
@@ -624,6 +554,20 @@ export default function AgentDetail() {
             Audit Log
           </TabButton>
         </div>
+
+        {activeTab === "activity" && (
+          <Section title="Activity Feed">
+            {logs.length === 0 ? (
+              <p className="text-sm text-text-tertiary">No activity yet</p>
+            ) : (
+              <div className="space-y-3 animate-fade-in">
+                {logs.map((log) => (
+                  <FeedCard key={log.id} log={log} />
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
 
         {activeTab === "tokens" && (
           <div className="space-y-4 animate-fade-in">
@@ -700,6 +644,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all ${
         active

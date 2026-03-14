@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 
 import { db, auditLogs } from "../db/index.js";
+import { publishAuditEvent } from "./event-bus.js";
 
 export type AuditAction =
   | "sign_request"
@@ -30,18 +31,40 @@ export interface AuditEntry {
 
 export async function writeAuditLog(entry: AuditEntry): Promise<string> {
   const id = nanoid();
+  const timestamp = new Date();
+  const request = entry.request ?? {};
+  const policyEvaluation = entry.policyEvaluation ?? null;
+  const approval = entry.approval ?? null;
+  const signing = entry.signing ?? null;
+  const blockchain = entry.blockchain ?? null;
+  const metadata = entry.metadata ?? null;
 
   await db.insert(auditLogs).values({
     id,
     agentId: entry.agentId,
     tokenJti: entry.tokenJti ?? null,
+    timestamp,
     action: entry.action,
-    request: entry.request ?? {},
-    policyEvaluation: entry.policyEvaluation ?? null,
-    approval: entry.approval ?? null,
-    signing: entry.signing ?? null,
-    blockchain: entry.blockchain ?? null,
-    metadata: entry.metadata ?? null,
+    request,
+    policyEvaluation,
+    approval,
+    signing,
+    blockchain,
+    metadata,
+  });
+
+  publishAuditEvent({
+    id,
+    agentId: entry.agentId,
+    tokenJti: entry.tokenJti ?? null,
+    timestamp: timestamp.toISOString(),
+    action: entry.action,
+    request,
+    policyEvaluation,
+    approval,
+    signing,
+    blockchain,
+    metadata,
   });
 
   return id;
