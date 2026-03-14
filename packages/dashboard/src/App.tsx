@@ -5,6 +5,7 @@ import AgentsList from "./pages/AgentsList";
 import AgentDetail from "./pages/AgentDetail";
 import Approvals from "./pages/Approvals";
 import Allowlists from "./pages/Allowlists";
+import Analytics from "./pages/Analytics";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/agents" element={<AgentsList />} />
           <Route path="/agents/:id" element={<AgentDetail />} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/approvals" element={<Approvals />} />
           <Route path="/allowlists" element={<Allowlists />} />
         </Route>
