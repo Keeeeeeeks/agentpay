@@ -16,6 +16,8 @@ const DEFAULT_EVM_CHAINS = [
   "eip155:42161",
   "eip155:10",
   "eip155:137",
+  "eip155:11155111",
+  "eip155:84532",
 ];
 
 const DEFAULT_SOLANA_CHAINS = ["solana-mainnet", "solana-devnet"];

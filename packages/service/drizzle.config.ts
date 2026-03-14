@@ -6,5 +6,5 @@ export default defineConfig({
   dialect: "postgresql",
   dbCredentials: {
     url: process.env["DATABASE_URL"] ?? "postgres://agentpay:agentpay@localhost:5433/agentpay",
-  },
+    url: process.env["DATABASE_URL"] ?? "postgres://localhost/agentpay",
 });
