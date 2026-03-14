@@ -1,8 +1,8 @@
-# AgentPay
+# agentPay (aPay)
 
 Cloud wallet infrastructure for AI agents. Agents transact on-chain without ever touching private keys.
 
-AgentPay sits between your AI agent and the blockchain. You set spending policies, issue scoped tokens, and your agent autonomously executes transactions within those bounds. If something exceeds policy, it queues for human approval. Every action is audit-logged.
+aPay sits between your AI agent and the blockchain. You set spending policies, issue scoped tokens, and your agent autonomously executes transactions within those bounds. If something exceeds policy, it queues for human approval. Every action is audit-logged.
 
 ## Architecture
 
